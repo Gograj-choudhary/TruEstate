@@ -1,58 +1,72 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const dotenv = require('dotenv');
-const morgan = require('morgan');
-const path = require('path');
-const fs = require('fs');
-const cors = require('cors');
+const express = require("express");
+const mongoose = require("mongoose");
+const dotenv = require("dotenv");
+const morgan = require("morgan");
+const path = require("path");
+const fs = require("fs");
+const cors = require("cors");
 
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
 const app = express();
 
+// CORS
 app.use(
   cors({
-    origin: [process.env.FRONTEND_URL || "http://localhost:5173"], // Vite frontend
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
     methods: "GET,POST,PUT,PATCH,DELETE",
     credentials: true,
   })
 );
 
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(morgan('dev'));
+app.use(morgan("dev"));
 
+// Upload folder
+const uploadDir =
+  process.env.CSV_UPLOAD_DIR || path.join(require("os").tmpdir(), "uploads");
+if (!fs.existsSync(uploadDir))
+  fs.mkdirSync(uploadDir, { recursive: true });
 
-// create upload dir if not exists
-const uploadDir = process.env.CSV_UPLOAD_DIR || path.join(require('os').tmpdir(), 'uploads');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+// Routes
+const transactionRoutes = require("./routes/transactionRoutes");
+app.use("/api/transactions", transactionRoutes);
 
-// routes
-const transactionRoutes = require('./routes/transactionRoutes');
-app.use('/api/transactions', transactionRoutes);
+// Health route
+app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
-// health
-app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
-
-// error handling
+// Error handler
 app.use((err, req, res, next) => {
-  console.error('Unhandled error', err);
-  res.status(500).json({ error: err.message || 'Internal server error' });
+  console.error("Unhandled error", err);
+  res.status(500).json({ error: err.message || "Internal server error" });
 });
 
-// connect and start
-const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || process.env.MONGO_URI_LOCAL;
+// ----------------------
+// MONGODB CONNECTION (Vercel-safe)
+// ----------------------
+let isConnected = false;
 
-mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => {
-    console.log('MongoDB connected');
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+async function connectDB() {
+  if (isConnected) return;
+
+  const MONGO_URI = process.env.MONGO_URI;
+
+  try {
+    const conn = await mongoose.connect(MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
     });
-  })
-  .catch((err) => {
-    console.error('Mongo connection error', err);
-    process.exit(1);
-  });
+
+    isConnected = conn.connections[0].readyState;
+    console.log("MongoDB Connected:", conn.connection.host);
+  } catch (err) {
+    console.error("MongoDB Error:", err);
+  }
+}
+
+connectDB();
+
+// IMPORTANT: no app.listen()
+// Export app for Vercel serverless
+module.exports = app;
