@@ -1,0 +1,6 @@
+.env
+node_modules
+data/truestate_assignment_dataset.csv
+backend/node_modules
+backend/.env
+backend/data/truestate_assignment_dataset.csv

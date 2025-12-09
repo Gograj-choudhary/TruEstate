@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* small helper styles */
+.table-scroll { max-height: calc(100vh - 260px); overflow: auto; }
+
+/* Hide native select arrow */
+select.appearance-none {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+select.appearance-none::-ms-expand {
+  display: none;
+}
