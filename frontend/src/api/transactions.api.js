@@ -6,7 +6,7 @@ import { axiosInstance } from "./client";
  */
 export const fetchTransactions = async (queryParams) => {
   // axios expects params object for querystring
-  const resp = await axiosInstance.get("/transactions", { params: queryParams });
+  const resp = await axiosInstance.get("/api/transactions", { params: queryParams });
   return resp.data;
 };
 
