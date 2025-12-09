@@ -1,58 +1,59 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const dotenv = require('dotenv');
-const morgan = require('morgan');
-const path = require('path');
-const fs = require('fs');
-const cors = require('cors');
+const express = require("express");
+const mongoose = require("mongoose");
+const dotenv = require("dotenv");
+const cors = require("cors");
+const morgan = require("morgan");
+const fs = require("fs");
+const path = require("path");
 
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+dotenv.config();
 
 const app = express();
 
 app.use(
   cors({
-    origin: [process.env.FRONTEND_URL || "http://localhost:5173"], // Vite frontend
-    methods: "GET,POST,PUT,PATCH,DELETE",
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
     credentials: true,
   })
 );
 
-
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(morgan('dev'));
+app.use(morgan("dev"));
 
-
-// create upload dir if not exists
-const uploadDir = process.env.CSV_UPLOAD_DIR || path.join(require('os').tmpdir(), 'uploads');
+// Upload dir
+const uploadDir = process.env.CSV_UPLOAD_DIR || "/tmp/uploads";
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-// routes
-const transactionRoutes = require('./routes/transactionRoutes');
-app.use('/api/transactions', transactionRoutes);
+// Routes
+app.use("/api/transactions", require("./routes/transactionRoutes"));
 
-// health
-app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+// Health
+app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
-// error handling
+// Global error
 app.use((err, req, res, next) => {
-  console.error('Unhandled error', err);
-  res.status(500).json({ error: err.message || 'Internal server error' });
+  console.error("ERROR:", err);
+  res.status(500).json({ error: err.message });
 });
 
-// connect and start
-const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || process.env.MONGO_URI_LOCAL;
+// ------------
+// Mongo Connect (safe for Vercel)
+// ------------
+let isConnected = false;
+async function connectDB() {
+  if (isConnected) return;
 
-mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => {
-    console.log('MongoDB connected');
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error('Mongo connection error', err);
-    process.exit(1);
-  });
+  try {
+    const conn = await mongoose.connect(process.env.MONGO_URI);
+    isConnected = conn.connections[0].readyState;
+    console.log("MongoDB connected:", conn.connection.host);
+  } catch (err) {
+    console.error("Mongo error:", err);
+  }
+}
+
+connectDB();
+
+// *** NO app.listen() here — Vercel handles it ***
+
+module.exports = app;
